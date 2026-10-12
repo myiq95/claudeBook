@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aura Reader</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- 외부 파서 라이브러리 CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    body { font-family: 'Pretendard', sans-serif; -webkit-tap-highlight-color: transparent; }
+    .island-bar {
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .island-bar.hidden-bar {
+      transform: translateY(100%) scale(0.95);
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* 커스텀 스크롤바 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(150,150,150,0.3); border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 transition-colors duration-300 min-h-screen flex flex-col">
+
+  <!-- 초기 화면: 서재 및 추가 메뉴 -->
+  <div id="library-view" class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col">
+    <header class="flex justify-between items-center mb-8 pt-4">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">나만의 서재</h1>
+        <p class="text-sm text-gray-500 mt-1">언제 어디서나 이어 읽을 수 있는 프리미엄 공간</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="openPasteModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square"></i> 붙여넣기
+        </button>
+        <label class="bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition cursor-pointer flex items-center gap-2">
+          <i class="fa-solid fa-folder-open"></i> 파일 열기
+          <input type="file" id="file-input" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html,.htm" onchange="handleFileSelect(event)">
+        </label>
+      </div>
+    </header>
+
+    <!-- 서재 목록 -->
+    <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 flex-1">
+      <!-- 동적 생성 -->
+    </div>
+  </div>
+
+  <!-- 텍스트 직접 붙여넣기 모달 -->
+  <div id="paste-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col">
+      <h3 class="text-lg font-bold mb-3">텍스트 직접 붙여넣기</h3>
+      <input type="text" id="paste-title" placeholder="책 제목 입력" class="border border-gray-200 rounded-xl px-4 py-2.5 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <textarea id="paste-content" placeholder="읽을 텍스트 내용을 붙여넣으세요..." class="border border-gray-200 rounded-xl p-4 h-48 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none mb-4"></textarea>
+      <div class="flex justify-end gap-2">
+        <button onclick="closePasteModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">취소</button>
+        <button onclick="savePastedText()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition">서재에 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 독서 뷰어 화면 -->
+  <div id="reader-view" class="fixed inset-0 bg-white z-40 hidden flex flex-col">
+    <!-- 본문 영역 -->
+    <main id="reader-container" class="flex-1 overflow-y-auto px-6 py-12 sm:px-16 md:px-24 max-w-3xl mx-auto w-full cursor-pointer" onclick="toggleIslandBar()">
+      <div id="reader-content" class="leading-relaxed text-justify"></div>
+    </main>
+
+    <!-- 아일랜드 바 메뉴 (아이콘 전용 + 자동 숨김) -->
+    <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+      <nav id="island-bar" class="island-bar bg-gray-900 bg-opacity-90 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-5 border border-gray-800">
+        <button onclick="goBackToLibrary()" title="서재로" class="hover:text-indigo-400 transition"><i class="fa-solid fa-arrow-left text-lg"></i></button>
+        <button onclick="toggleTOCModal()" title="목차" class="hover:text-indigo-400 transition"><i class="fa-solid fa-list text-lg"></i></button>
+        <button onclick="toggleTTS()" id="tts-btn" title="TTS 재생/정지" class="hover:text-indigo-400 transition"><i class="fa-solid fa-volume-high text-lg"></i></button>
+        <button onclick="toggleSettingsModal()" title="글꼴/설정" class="hover:text-indigo-400 transition"><i class="fa-solid fa-sliders text-lg"></i></button>
+        <button onclick="toggleNightMode()" id="night-mode-btn" title="화이트/다크 모드" class="hover:text-indigo-400 transition"><i class="fa-solid fa-moon text-lg"></i></button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- 목차 모달 -->
+  <div id="toc-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl max-h-[80vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-lg">목차</h3>
+        <button onclick="toggleTOCModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div id="toc-list" class="overflow-y-auto flex-1 divide-y divide-gray-100 pr-1"></div>
+    </div>
+  </div>
+
+  <!-- 설정 모달 (글꼴, 자간, 크기) -->
+  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-lg">읽기 설정</h3>
+        <button onclick="toggleSettingsModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="space-y-4 text-sm">
+        <div>
+          <label class="block text-gray-500 mb-1">글꼴 선택</label>
+          <select id="font-family-select" onchange="updateSettings()" class="w-full border border-gray-200 rounded-xl px-3 py-2 focus:outline-none">
+            <option value="'Pretendard', sans-serif">프리텐다드</option>
+            <option value="'Nanum Myeongjo', serif">나눔명조</option>
+            <option value="'RIDIBATANG', serif">리디바탕</option>
+            <option value="sans-serif">고딕</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-500 mb-1">글자 크기 (<span id="font-size-val">18</span>px)</label>
+          <input type="range" id="font-size-range" min="14" max="28" value="18" oninput="updateSettings()" class="w-full">
+        </div>
+        <div>
+          <label class="block text-gray-500 mb-1">자간 (<span id="letter-spacing-val">0</span>px)</label>
+          <input type="range" id="letter-spacing-range" min="-1" max="4" step="0.5" value="0" oninput="updateSettings()" class="w-full">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 상태 관리
+    let books = JSON.parse(localStorage.getItem('aura_books') || '[]');
+    let currentBookId = null;
+    let currentChapters = [];
+    let isNightMode = false;
+    let autoHideTimer = null;
+    let synth = window.speechSynthesis;
+    let utterance = null;
+
+    // 초기 실행
+    window.addEventListener('DOMContentLoaded', () => {
+      renderLibrary();
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+      }
+    });
+
+    // --- 서재 렌더링 및 관리 ---
+    function renderLibrary() {
+      const grid = document.getElementById('book-grid');
+      if (books.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full py-16 text-center text-gray-400 flex flex-col items-center justify-center">
+            <i class="fa-solid fa-book-open text-4xl mb-3 opacity-40"></i>
+            <p>서재가 비어 있습니다. 우측 상단에서 파일을 열거나 텍스트를 붙여넣으세요.</p>
+          </div>`;
+        return;
+      }
+      grid.innerHTML = books.map(book => `
+        <div class="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between relative group">
+          <div class="cursor-pointer" onclick="openBook('${book.id}')">
+            <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-lg uppercase">${book.type}</span>
+            <h2 class="font-bold text-lg mt-3 truncate">${book.title}</h2>
+            <p class="text-xs text-gray-400 mt-1">마지막 읽은 위치: ${Math.round(book.progress || 0)}%</p>
+          </div>
+          <div class="flex justify-between items-center mt-6 pt-3 border-t border-gray-50">
+            <button onclick="openBook('${book.id}')" class="text-xs font-medium text-indigo-600 hover:underline">이어 읽기</button>
+            <button onclick="deleteBook('${book.id}')" class="text-gray-300 hover:text-red-500 transition"><i class="fa-solid fa-trash-can text-sm"></i></button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function deleteBook(id) {
+      books = books.filter(b => b.id !== id);
+      localStorage.setItem('aura_books', JSON.stringify(books));
+      renderLibrary();
+    }
+
+    // --- 파일 로드 및 파싱 (TXT, DOCX, PDF, EPUB, MD, HTML) ---
+    async function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      let content = '';
+      let title = file.name.substring(0, file.name.lastIndexOf('.'));
+
+      try {
+        if (ext === 'txt') {
+          content = await readTxtFile(file);
+        } else if (ext === 'docx') {
+          const arrayBuffer = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          content = result.value;
+        } else if (ext === 'pdf') {
+          content = await readPdfFile(file);
+        } else if (ext === 'epub') {
+          content = await readEpubFile(file);
+        } else if (ext === 'md') {
+          const text = await file.text();
+          content = marked.parse(text);
+        } else if (ext === 'html' || ext === 'htm') {
+          const text = await file.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(text, 'text/html');
+          content = doc.body.innerHTML;
+        }
+
+        addBookToLibrary(title, content, ext);
+      } catch (err) {
+        alert('파일을 읽는 중 오류가 발생했습니다.');
+        console.error(err);
+      }
+      event.target.value = '';
+    }
+
+    // TXT 인코딩 호환 처리 (UTF-8, EUC-KR / CP949)
+    async function readTxtFile(file) {
+      const buffer = await file.arrayBuffer();
+      try {
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+        return decoder.decode(buffer);
+      } catch {
+        const decoder = new TextDecoder('euc-kr');
+        return decoder.decode(buffer);
+      }
+    }
+
+    async function readPdfFile(file) {
+      const typedarray = new Uint8Array(await file.arrayBuffer());
+      const pdf = await pdfjsLib.getDocument(typedarray).promise;
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+      }
+      return fullText;
+    }
+
+    async function readEpubFile(file) {
+      const book = ePub(await file.arrayBuffer());
+      await book.ready;
+      let fullText = '';
+      for (let spineItem of book.spine) {
+        const item = book.load(spineItem.href);
+        const doc = await item;
+        if (doc && doc.body) {
+          fullText += doc.body.innerText + '\n\n';
+        }
+      }
+      return fullText;
+    }
+
+    // 붙여넣기 저장
+    function openPasteModal() { document.getElementById('paste-modal').classList.remove('hidden'); }
+    function closePasteModal() { document.getElementById('paste-modal').classList.add('hidden'); }
+    function savePastedText() {
+      const title = document.getElementById('paste-title').value.trim() || '제목 없음';
+      const content = document.getElementById('paste-content').value.trim();
+      if (!content) return alert('내용을 입력해주세요.');
+      addBookToLibrary(title, content, 'txt');
+      document.getElementById('paste-title').value = '';
+      document.getElementById('paste-content').value = '';
+      closePasteModal();
+    }
+
+    function addBookToLibrary(title, content, type) {
+      const newBook = {
+        id: 'book_' + Date.now(),
+        title,
+        content,
+        type: type.toUpperCase(),
+        scrollTop: 0,
+        progress: 0
+      };
+      books.unshift(newBook);
+      localStorage.setItem('aura_books', JSON.stringify(books));
+      renderLibrary();
+      openBook(newBook.id);
+    }
+
+    // --- 목차 추출 로직 (한글 소설/문서 로직 + 임의 목차 폴백) ---
+    function generateChapters(content) {
+      const lines = content.split('\n');
+      let chapters = [];
+      const regex = /^\s*(제\s*\d+\s*[장편부회]|[\d]+\s*[\.장편부회]|프롤로그|에필로그|머리말|들어가는\s*말|맺음말|[가-힣]+\s*목차)/;
+
+      lines.forEach((line, index) => {
+        if (regex.test(line) && line.length < 50) {
+          chapters.push({ title: line.trim(), lineIndex: index });
+        }
+      });
+
+      // 목차가 없을 경우 임의 목차 (10등분 분할) 생성
+      if (chapters.length === 0) {
+        const chunkSize = Math.max(1, Math.floor(lines.length / 10));
+        for (let i = 0; i < lines.length; i += chunkSize) {
+          chapters.push({ title: `제 ${Math.floor(i / chunkSize) + 1}부`, lineIndex: i });
+        }
+      }
+      return chapters;
+    }
+
+    // --- 독서 뷰어 제어 ---
+    function openBook(id) {
+      currentBookId = id;
+      const book = books.find(b => b.id === id);
+      if (!book) return;
+
+      document.getElementById('library-view').classList.add('hidden');
+      document.getElementById('reader-view').classList.remove('hidden');
+
+      const contentContainer = document.getElementById('reader-content');
+      contentContainer.innerHTML = book.type === 'MD' || book.type === 'HTML' ? book.content : `<div style="white-space: pre-wrap;">${book.content}</div>`;
+      
+      currentChapters = generateChapters(book.content);
+
+      // 이전 읽던 위치 복원
+      const container = document.getElementById('reader-container');
+      container.scrollTop = book.scrollTop || 0;
+
+      container.onscroll = () => {
+        const st = container.scrollTop;
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        const progress = maxScroll > 0 ? (st / maxScroll) * 100 : 0;
+        book.scrollTop = st;
+        book.progress = progress;
+        localStorage.setItem('aura_books', JSON.stringify(books));
+      };
+    }
+
+    function goBackToLibrary() {
+      if (synth.speaking) synth.cancel();
+      document.getElementById('reader-view').classList.add('hidden');
+      document.getElementById('library-view').classList.remove('hidden');
+      renderLibrary();
+    }
+
+    // --- 아일랜드 바 자동 숨김 및 토글 ---
+    let hideTimeout;
+    function toggleIslandBar() {
+      const bar = document.getElementById('island-bar');
+      bar.classList.toggle('hidden-bar');
+      clearTimeout(hideTimeout);
+      if (!bar.classList.contains('hidden-bar')) {
+        hideTimeout = setTimeout(() => {
+          bar.classList.add('hidden-bar');
+        }, 4000);
+      }
+    }
+
+    // --- 목차 모달 ---
+    function toggleTOCModal() {
+      const modal = document.getElementById('toc-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        const list = document.getElementById('toc-list');
+        list.innerHTML = currentChapters.map((ch, idx) => `
+          <div onclick="jumpToChapter(${ch.lineIndex})" class="py-3 px-2 hover:bg-gray-50 cursor-pointer text-sm font-medium transition truncate">
+            ${ch.title}
+          </div>
+        `).join('');
+      }
+    }
+
+    function jumpToChapter(lineIndex) {
+      toggleTOCModal();
+      const container = document.getElementById('reader-container');
+      const lines = container.innerText.split('\n');
+      // 대략적인 위치 스크롤
+      const targetRatio = lineIndex / lines.length;
+      container.scrollTop = (container.scrollHeight - container.clientHeight) * targetRatio;
+    }
+
+    // --- 설정 모달 & 커스터마이징 ---
+    function toggleSettingsModal() {
+      document.getElementById('settings-modal').classList.toggle('hidden');
+    }
+
+    function updateSettings() {
+      const font = document.getElementById('font-family-select').value;
+      const size = document.getElementById('font-size-range').value;
+      const spacing = document.getElementById('letter-spacing-range').value;
+
+      document.getElementById('font-size-val').innerText = size;
+      document.getElementById('letter-spacing-val').innerText = spacing;
+
+      const content = document.getElementById('reader-content');
+      content.style.fontFamily = font;
+      content.style.fontSize = size + 'px';
+      content.style.letterSpacing = spacing + 'px';
+    }
+
+    // --- 나이트 모드 ---
+    function toggleNightMode() {
+      isNightMode = !isNightMode;
+      const view = document.getElementById('reader-view');
+      const btn = document.getElementById('night-mode-btn');
+      if (isNightMode) {
+        view.classList.remove('bg-white');
+        view.classList.add('bg-gray-900', 'text-gray-100');
+        btn.innerHTML = '<i class="fa-solid fa-sun text-lg"></i>';
+      } else {
+        view.classList.remove('bg-gray-900', 'text-gray-100');
+        view.classList.add('bg-white');
+        btn.innerHTML = '<i class="fa-solid fa-moon text-lg"></i>';
+      }
+    }
+
+    // --- 시스템 TTS 기능 ---
+    function toggleTTS() {
+      const btn = document.getElementById('tts-btn');
+      if (synth.speaking) {
+        synth.cancel();
+        btn.innerHTML = '<i class="fa-solid fa-volume-high text-lg"></i>';
+        return;
+      }
+      const book = books.find(b => b.id === currentBookId);
+      if (!book) return;
+
+      utterance = new SpeechSynthesisUtterance(book.content);
+      utterance.rate = 1.0;
+      utterance.lang = 'ko-KR';
+      utterance.onend = () => {
+        btn.innerHTML = '<i class="fa-solid fa-volume-high text-lg"></i>';
+      };
+      synth.speak(utterance);
+      btn.innerHTML = '<i class="fa-solid fa-volume-xmark text-lg text-indigo-400"></i>';
+    }
+  </script>
+</body>
+</html>
