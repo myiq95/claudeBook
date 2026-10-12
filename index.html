@@ -36,7 +36,7 @@
 
   <!-- 1. 초기 바탕화면 (Welcome Desktop View) -->
   <div id="welcome-view" class="fixed inset-0 hero-bg flex flex-col items-center justify-center p-6 text-center z-20">
-    <div class="max-w-md w-full animate-fade-in">
+    <div class="max-w-md w-full">
       <div class="w-20 h-20 bg-indigo-600 bg-opacity-20 border border-indigo-500 border-opacity-30 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-2xl backdrop-blur-xl">
         <i class="fa-solid fa-feather-pointed text-3xl text-indigo-400"></i>
       </div>
@@ -50,30 +50,27 @@
       </div>
     </div>
 
-    <!-- 초기화면 아일랜드 바 (파일열기, 붙여넣기, 서재 3개 아이콘 전용) -->
+    <!-- 초기화면 아일랜드 바 (순수 아이콘 전용 3개 아이콘) -->
     <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30">
-      <nav class="bg-gray-900 bg-opacity-80 backdrop-blur-xl text-white px-7 py-3.5 rounded-full shadow-2xl flex items-center gap-8 border border-gray-700">
+      <nav class="bg-gray-900 bg-opacity-80 backdrop-blur-xl text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-8 border border-gray-700">
         <!-- 파일 열기 -->
-        <label class="cursor-pointer hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="파일 열기">
+        <label class="cursor-pointer hover:text-indigo-400 transition flex items-center justify-center group" title="파일 열기">
           <i class="fa-solid fa-folder-open text-xl group-hover:scale-110 transition-transform"></i>
-          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">파일열기</span>
           <input type="file" id="file-input" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html,.htm" onchange="handleFileSelect(event)">
         </label>
         <!-- 붙여넣기 -->
-        <button onclick="openPasteModal()" class="hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="텍스트 붙여넣기">
+        <button onclick="openPasteModal()" class="hover:text-indigo-400 transition flex items-center justify-center group" title="텍스트 붙여넣기">
           <i class="fa-solid fa-pen-to-square text-xl group-hover:scale-110 transition-transform"></i>
-          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">붙여넣기</span>
         </button>
         <!-- 서재 -->
-        <button onclick="openLibraryView()" class="hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="서재 보기">
+        <button onclick="openLibraryView()" class="hover:text-indigo-400 transition flex items-center justify-center group" title="서재 보기">
           <i class="fa-solid fa-book-bookmark text-xl group-hover:scale-110 transition-transform"></i>
-          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">서재</span>
         </button>
       </nav>
     </div>
   </div>
 
-  <!-- 2. 서재 화면 (Library View - 분리됨) -->
+  <!-- 2. 서재 화면 (Library View) -->
   <div id="library-view" class="fixed inset-0 bg-gray-50 text-gray-800 z-30 hidden flex flex-col overflow-y-auto">
     <div class="max-w-4xl w-full mx-auto p-4 sm:p-8 flex-1 flex flex-col">
       <header class="flex justify-between items-center mb-8 pt-4 border-b border-gray-200 pb-4">
@@ -106,7 +103,7 @@
 
   <!-- 텍스트 직접 붙여넣기 모달 -->
   <div id="paste-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white text-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col animate-fade-in">
+    <div class="bg-white text-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col">
       <h3 class="text-lg font-bold mb-3">텍스트 직접 붙여넣기</h3>
       <input type="text" id="paste-title" placeholder="책 제목 입력" class="border border-gray-200 rounded-xl px-4 py-2.5 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
       <textarea id="paste-content" placeholder="읽을 텍스트 내용을 붙여넣으세요..." class="border border-gray-200 rounded-xl p-4 h-48 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none mb-4"></textarea>
@@ -124,9 +121,9 @@
       <div id="reader-content" class="leading-relaxed text-justify"></div>
     </main>
 
-    <!-- 독서 중 아일랜드 바 (목차, TTS, 설정, 나이트모드, 서재로) -->
+    <!-- 독서 중 아일랜드 바 (순수 아이콘) -->
     <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-      <nav id="island-bar" class="island-bar bg-gray-900 bg-opacity-90 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-5 border border-gray-800">
+      <nav id="island-bar" class="island-bar bg-gray-900 bg-opacity-90 backdrop-blur-md text-white px-6 py-3.5 rounded-full shadow-2xl flex items-center gap-6 border border-gray-800">
         <button onclick="goBackToLibrary()" title="서재로" class="hover:text-indigo-400 transition"><i class="fa-solid fa-arrow-left text-lg"></i></button>
         <button onclick="toggleTOCModal()" title="목차" class="hover:text-indigo-400 transition"><i class="fa-solid fa-list text-lg"></i></button>
         <button onclick="toggleTTS()" id="tts-btn" title="TTS 재생/정지" class="hover:text-indigo-400 transition"><i class="fa-solid fa-volume-high text-lg"></i></button>
