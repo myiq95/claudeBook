@@ -24,59 +24,107 @@
       opacity: 0;
       pointer-events: none;
     }
-    /* 커스텀 스크롤바 */
+    .hero-bg {
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+    }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(150,150,150,0.3); border-radius: 3px; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-800 transition-colors duration-300 min-h-screen flex flex-col">
+<body class="bg-gray-900 text-gray-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
 
-  <!-- 초기 화면: 서재 및 추가 메뉴 -->
-  <div id="library-view" class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col">
-    <header class="flex justify-between items-center mb-8 pt-4">
-      <div>
-        <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">나만의 서재</h1>
-        <p class="text-sm text-gray-500 mt-1">언제 어디서나 이어 읽을 수 있는 프리미엄 공간</p>
+  <!-- 1. 초기 바탕화면 (Welcome Desktop View) -->
+  <div id="welcome-view" class="fixed inset-0 hero-bg flex flex-col items-center justify-center p-6 text-center z-20">
+    <div class="max-w-md w-full animate-fade-in">
+      <div class="w-20 h-20 bg-indigo-600 bg-opacity-20 border border-indigo-500 border-opacity-30 rounded-3xl mx-auto flex items-center justify-center mb-6 shadow-2xl backdrop-blur-xl">
+        <i class="fa-solid fa-feather-pointed text-3xl text-indigo-400"></i>
       </div>
-      <div class="flex gap-2">
-        <button onclick="openPasteModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition flex items-center gap-2">
-          <i class="fa-solid fa-pen-to-square"></i> 붙여넣기
-        </button>
-        <label class="bg-gray-900 hover:bg-black text-white px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition cursor-pointer flex items-center gap-2">
-          <i class="fa-solid fa-folder-open"></i> 파일 열기
+      <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">Aura Reader</h1>
+      <p class="text-sm text-indigo-200 opacity-80 mb-8">당신만의 깊이 있는 독서 공간, 오프라인 프리미엄 서재</p>
+      
+      <!-- 오늘의 독서 명언 카드 -->
+      <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5 backdrop-blur-md shadow-lg text-left mb-12">
+        <p class="text-xs text-indigo-300 font-semibold mb-1"><i class="fa-solid fa-quote-left mr-1"></i> 오늘의 영감</p>
+        <p class="text-sm text-gray-200 leading-relaxed">"책 한 권을 읽는 것은 지난 수백 년 동안 가장 현명했던 이들과 대화하는 것과 같다."</p>
+      </div>
+    </div>
+
+    <!-- 초기화면 아일랜드 바 (파일열기, 붙여넣기, 서재 3개 아이콘 전용) -->
+    <div class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-30">
+      <nav class="bg-gray-900 bg-opacity-80 backdrop-blur-xl text-white px-7 py-3.5 rounded-full shadow-2xl flex items-center gap-8 border border-gray-700">
+        <!-- 파일 열기 -->
+        <label class="cursor-pointer hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="파일 열기">
+          <i class="fa-solid fa-folder-open text-xl group-hover:scale-110 transition-transform"></i>
+          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">파일열기</span>
           <input type="file" id="file-input" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html,.htm" onchange="handleFileSelect(event)">
         </label>
-      </div>
-    </header>
+        <!-- 붙여넣기 -->
+        <button onclick="openPasteModal()" class="hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="텍스트 붙여넣기">
+          <i class="fa-solid fa-pen-to-square text-xl group-hover:scale-110 transition-transform"></i>
+          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">붙여넣기</span>
+        </button>
+        <!-- 서재 -->
+        <button onclick="openLibraryView()" class="hover:text-indigo-400 transition flex flex-col items-center gap-1 group" title="서재 보기">
+          <i class="fa-solid fa-book-bookmark text-xl group-hover:scale-110 transition-transform"></i>
+          <span class="text-[10px] text-gray-400 group-hover:text-indigo-400">서재</span>
+        </button>
+      </nav>
+    </div>
+  </div>
 
-    <!-- 서재 목록 -->
-    <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 flex-1">
-      <!-- 동적 생성 -->
+  <!-- 2. 서재 화면 (Library View - 분리됨) -->
+  <div id="library-view" class="fixed inset-0 bg-gray-50 text-gray-800 z-30 hidden flex flex-col overflow-y-auto">
+    <div class="max-w-4xl w-full mx-auto p-4 sm:p-8 flex-1 flex flex-col">
+      <header class="flex justify-between items-center mb-8 pt-4 border-b border-gray-200 pb-4">
+        <div class="flex items-center gap-3">
+          <button onclick="closeLibraryView()" class="w-10 h-10 rounded-xl bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition text-gray-700">
+            <i class="fa-solid fa-arrow-left"></i>
+          </button>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-bold tracking-tight">나만의 서재</h1>
+            <p class="text-xs text-gray-500 mt-0.5">저장된 도서 목록 및 이어 읽기 공간</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="openPasteModalFromLibrary()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-xl text-xs font-medium shadow-sm transition flex items-center gap-1.5">
+            <i class="fa-solid fa-pen-to-square"></i> 붙여넣기
+          </button>
+          <label class="bg-gray-900 hover:bg-black text-white px-3.5 py-2 rounded-xl text-xs font-medium shadow-sm transition cursor-pointer flex items-center gap-1.5">
+            <i class="fa-solid fa-folder-open"></i> 파일 열기
+            <input type="file" id="library-file-input" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html,.htm" onchange="handleFileSelect(event)">
+          </label>
+        </div>
+      </header>
+
+      <!-- 서재 목록 그리드 -->
+      <div id="book-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 flex-1 pb-16">
+        <!-- 동적 생성 -->
+      </div>
     </div>
   </div>
 
   <!-- 텍스트 직접 붙여넣기 모달 -->
-  <div id="paste-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col">
+  <div id="paste-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white text-gray-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col animate-fade-in">
       <h3 class="text-lg font-bold mb-3">텍스트 직접 붙여넣기</h3>
       <input type="text" id="paste-title" placeholder="책 제목 입력" class="border border-gray-200 rounded-xl px-4 py-2.5 mb-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
       <textarea id="paste-content" placeholder="읽을 텍스트 내용을 붙여넣으세요..." class="border border-gray-200 rounded-xl p-4 h-48 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none mb-4"></textarea>
       <div class="flex justify-end gap-2">
         <button onclick="closePasteModal()" class="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-xl transition">취소</button>
-        <button onclick="savePastedText()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition">서재에 저장</button>
+        <button onclick="savePastedText()" class="px-4 py-2 text-sm bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition font-medium">서재에 저장</button>
       </div>
     </div>
   </div>
 
-  <!-- 독서 뷰어 화면 -->
-  <div id="reader-view" class="fixed inset-0 bg-white z-40 hidden flex flex-col">
+  <!-- 3. 독서 뷰어 화면 (Reader View) -->
+  <div id="reader-view" class="fixed inset-0 bg-white text-gray-800 z-40 hidden flex flex-col">
     <!-- 본문 영역 -->
     <main id="reader-container" class="flex-1 overflow-y-auto px-6 py-12 sm:px-16 md:px-24 max-w-3xl mx-auto w-full cursor-pointer" onclick="toggleIslandBar()">
       <div id="reader-content" class="leading-relaxed text-justify"></div>
     </main>
 
-    <!-- 아일랜드 바 메뉴 (아이콘 전용 + 자동 숨김) -->
+    <!-- 독서 중 아일랜드 바 (목차, TTS, 설정, 나이트모드, 서재로) -->
     <div class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
       <nav id="island-bar" class="island-bar bg-gray-900 bg-opacity-90 backdrop-blur-md text-white px-5 py-3 rounded-full shadow-2xl flex items-center gap-5 border border-gray-800">
         <button onclick="goBackToLibrary()" title="서재로" class="hover:text-indigo-400 transition"><i class="fa-solid fa-arrow-left text-lg"></i></button>
@@ -89,9 +137,9 @@
   </div>
 
   <!-- 목차 모달 -->
-  <div id="toc-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl max-h-[80vh] flex flex-col">
-      <div class="flex justify-between items-center mb-4">
+  <div id="toc-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white text-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl max-h-[80vh] flex flex-col">
+      <div class="flex justify-between items-center mb-4 border-b pb-3">
         <h3 class="font-bold text-lg">목차</h3>
         <button onclick="toggleTOCModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
       </div>
@@ -100,9 +148,9 @@
   </div>
 
   <!-- 설정 모달 (글꼴, 자간, 크기) -->
-  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl">
-      <div class="flex justify-between items-center mb-4">
+  <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white text-gray-800 rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+      <div class="flex justify-between items-center mb-4 border-b pb-3">
         <h3 class="font-bold text-lg">읽기 설정</h3>
         <button onclick="toggleSettingsModal()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
       </div>
@@ -129,7 +177,6 @@
   </div>
 
   <script>
-    // 상태 관리
     let books = JSON.parse(localStorage.getItem('aura_books') || '[]');
     let currentBookId = null;
     let currentChapters = [];
@@ -138,7 +185,6 @@
     let synth = window.speechSynthesis;
     let utterance = null;
 
-    // 초기 실행
     window.addEventListener('DOMContentLoaded', () => {
       renderLibrary();
       if ('serviceWorker' in navigator) {
@@ -146,14 +192,23 @@
       }
     });
 
+    // --- 화면 전환 제어 ---
+    function openLibraryView() {
+      renderLibrary();
+      document.getElementById('library-view').classList.remove('hidden');
+    }
+    function closeLibraryView() {
+      document.getElementById('library-view').classList.add('hidden');
+    }
+
     // --- 서재 렌더링 및 관리 ---
     function renderLibrary() {
       const grid = document.getElementById('book-grid');
       if (books.length === 0) {
         grid.innerHTML = `
-          <div class="col-span-full py-16 text-center text-gray-400 flex flex-col items-center justify-center">
-            <i class="fa-solid fa-book-open text-4xl mb-3 opacity-40"></i>
-            <p>서재가 비어 있습니다. 우측 상단에서 파일을 열거나 텍스트를 붙여넣으세요.</p>
+          <div class="col-span-full py-20 text-center text-gray-400 flex flex-col items-center justify-center">
+            <i class="fa-solid fa-book-open text-4xl mb-3 opacity-30"></i>
+            <p>서재가 비어 있습니다. 상단에서 파일을 열거나 텍스트를 붙여넣으세요.</p>
           </div>`;
         return;
       }
@@ -215,7 +270,6 @@
       event.target.value = '';
     }
 
-    // TXT 인코딩 호환 처리 (UTF-8, EUC-KR / CP949)
     async function readTxtFile(file) {
       const buffer = await file.arrayBuffer();
       try {
@@ -253,9 +307,11 @@
       return fullText;
     }
 
-    // 붙여넣기 저장
+    // 붙여넣기 모달
     function openPasteModal() { document.getElementById('paste-modal').classList.remove('hidden'); }
+    function openPasteModalFromLibrary() { document.getElementById('paste-modal').classList.remove('hidden'); }
     function closePasteModal() { document.getElementById('paste-modal').classList.add('hidden'); }
+    
     function savePastedText() {
       const title = document.getElementById('paste-title').value.trim() || '제목 없음';
       const content = document.getElementById('paste-content').value.trim();
@@ -277,11 +333,11 @@
       };
       books.unshift(newBook);
       localStorage.setItem('aura_books', JSON.stringify(books));
-      renderLibrary();
+      closeLibraryView();
       openBook(newBook.id);
     }
 
-    // --- 목차 추출 로직 (한글 소설/문서 로직 + 임의 목차 폴백) ---
+    // --- 목차 추출 로직 ---
     function generateChapters(content) {
       const lines = content.split('\n');
       let chapters = [];
@@ -293,7 +349,6 @@
         }
       });
 
-      // 목차가 없을 경우 임의 목차 (10등분 분할) 생성
       if (chapters.length === 0) {
         const chunkSize = Math.max(1, Math.floor(lines.length / 10));
         for (let i = 0; i < lines.length; i += chunkSize) {
@@ -309,7 +364,7 @@
       const book = books.find(b => b.id === id);
       if (!book) return;
 
-      document.getElementById('library-view').classList.add('hidden');
+      closeLibraryView();
       document.getElementById('reader-view').classList.remove('hidden');
 
       const contentContainer = document.getElementById('reader-content');
@@ -317,7 +372,6 @@
       
       currentChapters = generateChapters(book.content);
 
-      // 이전 읽던 위치 복원
       const container = document.getElementById('reader-container');
       container.scrollTop = book.scrollTop || 0;
 
@@ -334,8 +388,7 @@
     function goBackToLibrary() {
       if (synth.speaking) synth.cancel();
       document.getElementById('reader-view').classList.add('hidden');
-      document.getElementById('library-view').classList.remove('hidden');
-      renderLibrary();
+      openLibraryView();
     }
 
     // --- 아일랜드 바 자동 숨김 및 토글 ---
@@ -369,7 +422,6 @@
       toggleTOCModal();
       const container = document.getElementById('reader-container');
       const lines = container.innerText.split('\n');
-      // 대략적인 위치 스크롤
       const targetRatio = lineIndex / lines.length;
       container.scrollTop = (container.scrollHeight - container.clientHeight) * targetRatio;
     }
@@ -399,12 +451,12 @@
       const view = document.getElementById('reader-view');
       const btn = document.getElementById('night-mode-btn');
       if (isNightMode) {
-        view.classList.remove('bg-white');
+        view.classList.remove('bg-white', 'text-gray-800');
         view.classList.add('bg-gray-900', 'text-gray-100');
         btn.innerHTML = '<i class="fa-solid fa-sun text-lg"></i>';
       } else {
         view.classList.remove('bg-gray-900', 'text-gray-100');
-        view.classList.add('bg-white');
+        view.classList.add('bg-white', 'text-gray-800');
         btn.innerHTML = '<i class="fa-solid fa-moon text-lg"></i>';
       }
     }
